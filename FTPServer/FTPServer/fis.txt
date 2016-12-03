@@ -1,0 +1,43 @@
+void get_links_from_file(string file_string, vector<string>* links) {
+	std::regex re("http:.*\\.exe");
+	sregex_iterator next(file_string.begin(), file_string.end(), re);
+	sregex_iterator end_re;
+
+	while (next != end_re) {
+		smatch match = *next;
+		links->push_back(match.str());
+		next++;
+	}
+}
+
+get_links_from_file(file_string, &links);
+http://students.info.uaic.ro/~alexandru.matei/csso/tema1.exe
+void download_exe(vector<string> links) {
+	for (vector<string>::iterator iter = links.begin(), end = links.end(); iter != end; ++iter) {
+		string url = *iter;
+
+		HINTERNET internet_open_url = InternetOpenUrl(
+			internet_open,
+			url.c_str(),
+			NULL, NULL, NULL, NULL);
+
+		string file_name = url.substr(url.rfind("/") + 1, url.npos);
+		string dest_file = DEST_FOLDER + file_name;
+
+		HANDLE hFile = CreateFile(
+			dest_file.c_str(), GENERIC_WRITE, NULL, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+		char Buffer[1024];
+		DWORD dwRead = 0;
+		while (InternetReadFile(internet_open_url, Buffer, sizeof(Buffer), &dwRead) == TRUE)
+		{
+			if (dwRead == 0)
+				break;
+			DWORD dwWrite = 0;
+			WriteFile(hFile, Buffer, dwRead, &dwWrite, NULL);
+		}
+
+		CloseHandle(hFile);
+		InternetCloseHandle(internet_open_url);
+	}
+}

@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include <windows.h>
 #include <wininet.h>
+#include <regex>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -11,15 +12,15 @@
 using namespace std;
 #pragma comment(lib, "Wininet")
 
-HINTERNET hOpenHandle, hConnectHandle, hFind;
+HINTERNET hOpenHandle, hConnectHandle, hFind, hIntOpen;
 vector<WIN32_FIND_DATA> vec;
+vector<string> links;
 
 bool list(vector<WIN32_FIND_DATA>& vec)
 {
+	WIN32_FIND_DATA fileInfo;
 	if (!hConnectHandle)
 		return false;
-
-	WIN32_FIND_DATA fileInfo;
 
 	hFind = FtpFindFirstFile(hConnectHandle, TEXT("*.*"), &fileInfo, 0, 0);
 	if (hFind == NULL)
@@ -30,9 +31,7 @@ bool list(vector<WIN32_FIND_DATA>& vec)
 	{
 		vec.push_back(fileInfo);
 	}
-
 	InternetCloseHandle(hFind);
-
 	return true;
 }
 
@@ -42,7 +41,7 @@ string getFileExtention(wchar_t* fileName) {
 	return str.substr(str.find_last_of(".") + 1);
 }
 
-void printVector(vector<WIN32_FIND_DATA>& vec) { //print and save text files
+void printVector(vector<WIN32_FIND_DATA> vec) { //print and save text files
 	wchar_t newPath[256];
 
 	for (vector<WIN32_FIND_DATA>::iterator it = vec.begin(); it != vec.end(); ++it) {
@@ -54,19 +53,64 @@ void printVector(vector<WIN32_FIND_DATA>& vec) { //print and save text files
 	}	
 }
 
-void readFiles(vector<WIN32_FIND_DATA>& vec) {
-	char file[256] = "file.txt";
+bool readFiles(vector<WIN32_FIND_DATA> vec, vector<string>& links) {
+	char file[256];
 	for (vector<WIN32_FIND_DATA>::iterator it = vec.begin(); it != vec.end(); ++it) {
 
 		sprintf(file, "%ws", it->cFileName);
 		ifstream infile(file);	
 		string line;
-		while (std::getline(infile, line))
+		while (getline(infile, line))
 		{
-			printf("%s\n", line.c_str());
+			if (!line.compare(0, 4, "http") && line.substr(line.find_last_of(".") + 1) == "exe") {
+				links.push_back(line);
+				printf("%s\n", line.c_str());
+			}
 		}
 		infile.close();
-		printf("\n");
+	}
+	return 0;
+}
+
+void get_links_from_file(string file_string, vector<string>* links) {
+	regex re("http:.*\\.exe");
+	sregex_iterator next(file_string.begin(), file_string.end(), re);
+	sregex_iterator end_re;
+
+	while (next != end_re) {
+		smatch match = *next;
+		links->push_back(match.str());
+		next++;
+	}
+}
+
+void download_exe(vector<string> links) {
+	for (vector<string>::iterator iter = links.begin(), end = links.end(); iter != end; ++iter) {
+		string url = *iter;
+		wchar_t w_url[1000], w_dest_file[1000];
+		swprintf(w_url, L"%hs", url.c_str());
+		HINTERNET internet_open_url = InternetOpenUrl(hIntOpen,
+										    		  w_url,
+													  NULL, NULL, NULL, NULL);
+
+		string filename = url.substr(url.rfind("/") + 1, url.npos);
+		swprintf(w_dest_file, L"D:\\College\\%hs", filename.c_str());
+		wprintf(L"%ws\n", w_dest_file);
+
+		HANDLE hFile = CreateFile(w_dest_file, GENERIC_WRITE, NULL, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+		char Buffer[1024];
+		DWORD dwRead = 0;
+		while (InternetReadFile(internet_open_url, Buffer, sizeof(Buffer), &dwRead) == TRUE)
+		{
+			if (dwRead == 0)
+				break;
+			DWORD dwWrite = 0;
+			WriteFile(hFile, Buffer, dwRead, &dwWrite, NULL);
+		}
+
+		CloseHandle(hFile);
+		InternetCloseHandle(internet_open_url);
 	}
 }
 
@@ -88,7 +132,7 @@ int main(int argc, char* argv[])
 							   INTERNET_OPEN_TYPE_PRECONFIG,
 							   NULL, NULL, 0);
 	if (hOpenHandle == NULL) {
-		return printf("Library initialization failed %li.\n", GetLastError());
+		return printf("FTP Library initialization failed %li.\n", GetLastError());
 	}
 
 	hConnectHandle = InternetConnect(hOpenHandle,
@@ -102,11 +146,18 @@ int main(int argc, char* argv[])
 	if (hConnectHandle == NULL)
 		return printf("Connection to update server failed: %li.\n", GetLastError());
 
+	hIntOpen = InternetOpen(TEXT("HTTPServer"), LOCAL_INTERNET_ACCESS, NULL, 0, 0);
+	if (hIntOpen == NULL)
+		return printf("HTTP Library initialization failed %li.\n", GetLastError());
+
 	if (list(vec) == false)
 		return 1;
 	printVector(vec);
-	readFiles(vec);
 
+	if (readFiles(vec, links) == 1) {
+		return 1;
+	}
+	download_exe(links);
 	InternetCloseHandle(hConnectHandle);
 	InternetCloseHandle(hOpenHandle);
     return 0;
