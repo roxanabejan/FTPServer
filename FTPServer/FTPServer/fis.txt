@@ -11,7 +11,6 @@ void get_links_from_file(string file_string, vector<string>* links) {
 }
 
 get_links_from_file(file_string, &links);
-http://students.info.uaic.ro/~alexandru.matei/csso/tema1.exe
 void download_exe(vector<string> links) {
 	for (vector<string>::iterator iter = links.begin(), end = links.end(); iter != end; ++iter) {
 		string url = *iter;

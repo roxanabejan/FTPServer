@@ -30,7 +30,8 @@ bool list(vector<WIN32_FIND_DATA>& vec)
 
 	while (InternetFindNextFile(hFind, &fileInfo) == TRUE)
 	{
-		vec.push_back(fileInfo);
+		if (!(fileInfo.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+			vec.push_back(fileInfo);
 	}
 	InternetCloseHandle(hFind);
 	return true;
@@ -39,7 +40,7 @@ bool list(vector<WIN32_FIND_DATA>& vec)
 string getFileExtention(wchar_t* fileName) {
 	wstring ws(fileName);
 	string str(ws.begin(), ws.end());
-	return str.substr(str.find_last_of(".") + 1);
+	return str.substr(str.find_last_of("."));
 }
 
 void printLinks(vector<string> links) { 
@@ -53,10 +54,11 @@ void printVector(vector<WIN32_FIND_DATA> vec) { //print and save text files
 
 	for (vector<WIN32_FIND_DATA>::iterator it = vec.begin(); it != vec.end(); ++it) {
 		swprintf(newPath, L"C:\\Users\\Roxana\\Documents\\GitHub\\FTPServer\\FTPServer\\FTPServer\\%ws", it->cFileName);
-		printf("%ws %s\n", it->cFileName, getFileExtention(it->cFileName).c_str());
+		printf("%ws\n", it->cFileName);
 
-		if(getFileExtention(it->cFileName) == "txt")
-			FtpGetFile(hConnectHandle, it->cFileName, newPath , TRUE, FILE_ATTRIBUTE_NORMAL, FTP_TRANSFER_TYPE_UNKNOWN, 0);
+		if(getFileExtention(it->cFileName) == ".txt")
+			if(!FtpGetFile(hConnectHandle, it->cFileName, newPath , false , FILE_ATTRIBUTE_NORMAL, FTP_TRANSFER_TYPE_ASCII, 0))
+				printf("FTPGetFile failed.\n");
 	}	
 }
 
@@ -182,7 +184,6 @@ int main(int argc, char* argv[])
 	if (readFiles(vec, links) == 1) {
 		return 1;
 	}
-	//printLinks(links);
 
 	download(links);
 
